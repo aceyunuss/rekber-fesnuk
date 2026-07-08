@@ -5,29 +5,30 @@ import (
 	"log"
 	"net/http"
 	"rekber-fesnuk/internal/config"
+	"rekber-fesnuk/internal/db"
+	"rekber-fesnuk/internal/server"
 )
 
 func main() {
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
+
 	cfg := config.Load()
+
+	database, err := db.Connect(cfg.DbUrl)
+	if err != nil {
+		log.Fatalf("Failed connect database : %v", err)
+	}
+	defer database.Close()
+	log.Println("Database connected successfully")
+
 	log.Println("Starting server on port : ", cfg.Port)
 
-	mux := http.NewServeMux()
+	router := server.NewRouter(cfg, database)
 
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"OK"}`))
-	})
-
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`Server is runyaw 😸`))
-	})
-
-	if err := http.ListenAndServe(":"+cfg.Port, logRequests(mux)); err != nil {
+	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
 		log.Fatal("Server error:", err)
 	}
 }
