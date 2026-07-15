@@ -3,8 +3,10 @@ package config
 import "os"
 
 type Config struct {
-	Port  string
-	DbUrl string
+	Port        string
+	DbUrl       string
+	JWTSecret   string
+	AdminAPIKey string
 }
 
 func getEnv(key, fallback string) string {
@@ -25,7 +27,9 @@ func mustGetEnv(key string) string {
 
 func Load() *Config {
 	return &Config{
-		Port:  getEnv("PORT", ""),
-		DbUrl: mustGetEnv("DB_URL"),
+		Port:        getEnv("PORT", ""),
+		DbUrl:       mustGetEnv("DB_URL"),
+		JWTSecret:   mustGetEnv("JWT_SECRET"),
+		AdminAPIKey: mustGetEnv("ADMIN_API_KEY"),
 	}
 }

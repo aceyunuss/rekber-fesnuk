@@ -6,18 +6,21 @@ import (
 	"net/http"
 	"rekber-fesnuk/internal/config"
 	"rekber-fesnuk/internal/handlers"
+	"rekber-fesnuk/internal/middleware"
 )
 
 func NewRouter(cfg *config.Config, database *sql.DB) http.Handler {
 
-	sellerHandler := handlers.NewSellerHandler(database)
+	sellerHandler := handlers.NewSellerHandler(database, cfg.JWTSecret)
 
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("POST /api/sellers/login", sellerHandler.LoginSeller)
+
 	mux.HandleFunc("POST /api/sellers", sellerHandler.CreateSeller)
-	mux.HandleFunc("GET /api/sellers/{id}", sellerHandler.GetSeller)
-	mux.HandleFunc("PUT /api/sellers/{id}", sellerHandler.UpdateSeller)
-	mux.HandleFunc("DELETE /api/sellers/{id}", sellerHandler.DeleteSeller)
+	mux.HandleFunc("GET /api/sellers/{id}", middleware.ReqAuth(cfg.JWTSecret)(sellerHandler.GetSeller))
+	mux.HandleFunc("PUT /api/sellers/{id}", middleware.ReqAuth(cfg.JWTSecret)(sellerHandler.UpdateSeller))
+	mux.HandleFunc("DELETE /api/sellers/{id}", middleware.ReqAuth(cfg.JWTSecret)(sellerHandler.DeleteSeller))
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

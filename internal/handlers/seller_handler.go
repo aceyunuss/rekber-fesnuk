@@ -9,13 +9,18 @@ import (
 )
 
 type SellerHandler struct {
-	DB *sql.DB
+	DB        *sql.DB
+	JWTSecret string
 }
 
-func NewSellerHandler(db *sql.DB) *SellerHandler {
-	return &SellerHandler{DB: db}
+func NewSellerHandler(db *sql.DB, jwtSecret string) *SellerHandler {
+	return &SellerHandler{DB: db, JWTSecret: jwtSecret}
 }
 
+type loginSellerRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 type createSellerRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -225,6 +230,47 @@ func (h *SellerHandler) DeleteSeller(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Seller deleted successfully",
+	})
+
+}
+
+func (h *SellerHandler) LoginSeller(w http.ResponseWriter, r *http.Request) {
+	var req loginSellerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	if req.Email == "" || req.Password == "" {
+		httputil.WriteError(w, http.StatusBadRequest, "Missing required fields")
+		return
+	}
+
+	var id int
+	var name, email, passwordHash, phone string
+	err := h.DB.QueryRow("SELECT ID, NAME, EMAIL, PASSWORD, PHONE FROM SELLERS WHERE EMAIL = $1", req.Email).Scan(&id, &name, &email, &passwordHash, &phone)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Error login seller"+err.Error())
+		return
+	}
+
+	if !auth.CheckPassword(passwordHash, req.Password) {
+		httputil.WriteError(w, http.StatusUnauthorized, "Invalid password")
+		return
+	}
+
+
+	token, err := auth.GenerateToken(h.JWTSecret, id)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Error generate token")
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"id":    id,
+		"name":  name,
+		"email": email,
+		"phone": phone,
+		"token": token,
 	})
 
 }
